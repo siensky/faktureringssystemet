@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://faktureringssystem.se/schemas/events/invoice-reminder-sent.schema.json",
+  "title": "InvoiceReminderSentPayload",
+  "description": "Payload för invoice.reminder_sent. Publiceras av billing i samma transaktion som det nattliga automationsjobbet skapar påminnelsen (createReminderInTx) och sätter originalet till superseded. invoiceId är PÅMINNELSEN — det är den som har en snapshot och som skickas till kunden som PDF (samma mönster som invoice.credited, domain.md #35).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["invoiceId", "remindsInvoiceId"],
+  "properties": {
+    "invoiceId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Påminnelsens id."
+    },
+    "remindsInvoiceId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Originalfakturan som påminnelsen avser."
+    }
+  }
+}

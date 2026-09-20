@@ -1,0 +1,11 @@
+{
+  "eventId": "1a2b3c4d-0007-4000-8000-000000000007",
+  "eventType": "invoice.reminder_sent",
+  "tenantId": 1,
+  "correlationId": "3c9c1a2e-6c5f-4e0e-9d3b-1a2b3c4d5e70",
+  "occurredAt": "2026-09-20T08:20:00.000Z",
+  "payload": {
+    "invoiceId": 44,
+    "remindsInvoiceId": 42
+  }
+}

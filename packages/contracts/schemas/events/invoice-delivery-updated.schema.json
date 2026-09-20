@@ -14,7 +14,7 @@
     },
     "documentType": {
       "type": "string",
-      "enum": ["invoice", "credit_note"],
+      "enum": ["invoice", "credit_note", "reminder"],
       "description": "Vilket dokument som skickades. Samma värdemängd som documents.document_type."
     },
     "deliveryStatus": {

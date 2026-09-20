@@ -120,8 +120,12 @@ export function buildSnapshotPayload(input: {
   items: InvoiceItemRow[];
   company: CompanySettingsRow;
   customer: CustomerRow;
+  // Bara satt för en påminnelse (fas 14) — documents behöver originalets
+  // FAKTURANUMMER för referensraden på påminnelse-PDF:en ("Avser faktura
+  // …"), och snapshoten har annars bara påminnelsens egna fält.
+  remindsInvoice?: InvoiceRow;
 }): JsonObject {
-  const { invoice, items, company, customer } = input;
+  const { invoice, items, company, customer, remindsInvoice } = input;
   return {
     invoice: {
       id: invoice.id,
@@ -134,6 +138,7 @@ export function buildSnapshotPayload(input: {
       totalExclVatOre: Number(invoice.total_excl_vat_ore),
       totalVatOre: Number(invoice.total_vat_ore),
       totalInclVatOre: Number(invoice.total_incl_vat_ore),
+      ...(remindsInvoice ? { remindsInvoiceNumber: remindsInvoice.invoice_number } : {}),
     },
     company: {
       name: company.company_name,

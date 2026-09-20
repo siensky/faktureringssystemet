@@ -44,18 +44,38 @@ _SEND_SUCCESS_MAX_ATTEMPTS = 3
 _SEND_SUCCESS_RETRY_DELAY_SECONDS = 0.5
 
 
+def _body_text(email_type: str) -> str:
+    # Bara påminnelsen (fas 14) grenar — faktura och kreditfaktura delade
+    # redan samma text innan detta, och det ändras inte här.
+    if email_type == "reminder":
+        return (
+            "Hej,\n\nDin faktura har förfallit till betalning. Bifogat finner du en "
+            "påminnelse där en påminnelseavgift tillkommit.\n\n"
+            "Betala till bankgirot och ange OCR-referensen som står på påminnelsen "
+            "— den skiljer sig från den ursprungliga fakturans referens.\n"
+        )
+    return (
+        "Hej,\n\nBifogat finner du din faktura som PDF.\n\n"
+        "Betala till bankgirot och ange OCR-referensen som står på fakturan.\n"
+    )
+
+
 def _build_message(
-    *, sender: str, recipient: str, subject: str, message_id: str, pdf: bytes, filename: str
+    *,
+    sender: str,
+    recipient: str,
+    subject: str,
+    message_id: str,
+    pdf: bytes,
+    filename: str,
+    email_type: str,
 ) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = recipient
     msg["Subject"] = subject
     msg["Message-ID"] = message_id
-    msg.set_content(
-        "Hej,\n\nBifogat finner du din faktura som PDF.\n\n"
-        "Betala till bankgirot och ange OCR-referensen som står på fakturan.\n"
-    )
+    msg.set_content(_body_text(email_type))
     msg.add_attachment(pdf, maintype="application", subtype="pdf", filename=filename)
     return msg
 
@@ -119,6 +139,7 @@ class EmailWorker:
                 message_id=message_id,
                 pdf=pdf,
                 filename=f"{row['email_type']}-{row['invoice_id']}.pdf",
+                email_type=row["email_type"],
             )
             await aiosmtplib.send(
                 message,

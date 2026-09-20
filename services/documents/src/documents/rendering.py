@@ -70,6 +70,7 @@ def build_template_context(snapshot: dict[str, Any]) -> dict[str, Any]:
     raw_lines = snapshot.get("lines", [])
 
     is_credit_note = invoice.get("invoiceType") == "credit_note"
+    is_reminder = invoice.get("invoiceType") == "reminder"
 
     lines: list[dict[str, Any]] = []
     vat_groups: dict[float, dict[str, int]] = {}
@@ -100,9 +101,21 @@ def build_template_context(snapshot: dict[str, Any]) -> dict[str, Any]:
         for rate, group in sorted(vat_groups.items())
     ]
 
+    if is_credit_note:
+        title = "Kreditfaktura"
+    elif is_reminder:
+        title = "Påminnelse"
+    else:
+        title = "Faktura"
+
     return {
         "is_credit_note": is_credit_note,
-        "title": "Kreditfaktura" if is_credit_note else "Faktura",
+        "is_reminder": is_reminder,
+        "title": title,
+        # Bara satt för en påminnelse (mappers.ts buildSnapshotPayload,
+        # fas 14) — originalfakturans NUMMER, för referensraden på
+        # påminnelse-PDF:en.
+        "reminder_for": invoice.get("remindsInvoiceNumber"),
         "invoice_number": invoice.get("invoiceNumber"),
         "ocr": invoice.get("ocrNumber"),
         "date_issued": invoice.get("dateIssued"),
@@ -130,7 +143,12 @@ def build_template_context(snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 def document_type_of(snapshot: dict[str, Any]) -> str:
-    return "credit_note" if snapshot["invoice"].get("invoiceType") == "credit_note" else "invoice"
+    invoice_type = snapshot["invoice"].get("invoiceType")
+    if invoice_type == "credit_note":
+        return "credit_note"
+    if invoice_type == "reminder":
+        return "reminder"
+    return "invoice"
 
 
 def render_pdf(snapshot: dict[str, Any]) -> bytes:

@@ -1,4 +1,6 @@
-"""RabbitMQ-konsument för invoice.sent och invoice.credited.
+"""RabbitMQ-konsument för invoice.sent, invoice.credited och
+invoice.reminder_sent (fas 14 — påminnelser fick sin egen leveransväg;
+tidigare band den här konsumenten bara de två första).
 
 architecture.md #7 FALL B — sidoeffekten är extern (S3 + senare SMTP), så:
   1. gör jobbet FÖRST: hämta snapshot, rendera PDF, ladda upp till S3
@@ -65,7 +67,7 @@ from .rendering import document_type_of, render_pdf
 from .s3 import S3Store, storage_key
 
 QUEUE = "documents.events"
-ROUTING_KEYS = ("invoice.sent", "invoice.credited")
+ROUTING_KEYS = ("invoice.sent", "invoice.credited", "invoice.reminder_sent")
 REQUEUE_DELAY_SECONDS = 1.0
 PREFETCH = 5
 ATTEMPTS_HEADER = "x-attempts"
@@ -86,6 +88,8 @@ def _subject(snapshot: dict[str, Any], document_type: str) -> str:
     company = snapshot["company"].get("name") or "Faktura"
     if document_type == "credit_note":
         return f"Kreditfaktura {number} från {company}"
+    if document_type == "reminder":
+        return f"Påminnelse {number} från {company}"
     return f"Faktura {number} från {company}"
 
 
