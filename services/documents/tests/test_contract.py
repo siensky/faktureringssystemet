@@ -54,6 +54,7 @@ def test_extra_falt_avvisas():
     [
         ("events/invoice-sent.json", "invoice.sent"),
         ("events/invoice-credited.json", "invoice.credited"),
+        ("events/invoice-reminder-sent.json", "invoice.reminder_sent"),
         ("events/invoice-delivery-updated.json", "invoice.delivery_updated"),
     ],
 )

@@ -13,5 +13,9 @@ def test_nyckel_for_kreditfaktura():
     assert storage_key(7, 100, "credit_note") == "7/invoices/100/credit_note.pdf"
 
 
+def test_nyckel_for_paminnelse():
+    assert storage_key(7, 101, "reminder") == "7/invoices/101/reminder.pdf"
+
+
 def test_nyckeln_ar_deterministisk():
     assert storage_key(3, 9, "invoice") == storage_key(3, 9, "invoice")

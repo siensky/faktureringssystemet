@@ -12,6 +12,7 @@ export { DELIVERY_STATUS_ORDER, deliveryRank } from "./delivery-rank";
 export type { EventEnvelope } from "./generated/envelope";
 export type { InvoiceSentPayload } from "./generated/invoice-sent";
 export type { InvoiceCreditedPayload } from "./generated/invoice-credited";
+export type { InvoiceReminderSentPayload } from "./generated/invoice-reminder-sent";
 export type { InvoiceDeliveryUpdatedPayload } from "./generated/invoice-delivery-updated";
 export type { PaymentMatchedPayload } from "./generated/payment-matched";
 export type { PaymentPartialPayload } from "./generated/payment-partial";

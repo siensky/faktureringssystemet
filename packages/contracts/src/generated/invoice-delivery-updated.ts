@@ -15,7 +15,7 @@ export interface InvoiceDeliveryUpdatedPayload {
   /**
    * Vilket dokument som skickades. Samma värdemängd som documents.document_type.
    */
-  documentType: "invoice" | "credit_note";
+  documentType: "invoice" | "credit_note" | "reminder";
   /**
    * Ny leveransstatus. 'none' finns bara som DB-default i billing och rapporteras aldrig.
    */

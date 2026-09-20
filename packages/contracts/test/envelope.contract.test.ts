@@ -42,6 +42,7 @@ describe("payload per eventtyp (kontrakt delat med Python)", () => {
   const cases: Array<{ fixture: string; eventType: string }> = [
     { fixture: "events/invoice-sent.json", eventType: "invoice.sent" },
     { fixture: "events/invoice-credited.json", eventType: "invoice.credited" },
+    { fixture: "events/invoice-reminder-sent.json", eventType: "invoice.reminder_sent" },
     { fixture: "events/invoice-delivery-updated.json", eventType: "invoice.delivery_updated" },
     { fixture: "events/payment-matched.json", eventType: "payment.matched" },
     { fixture: "events/payment-partial.json", eventType: "payment.partial" },

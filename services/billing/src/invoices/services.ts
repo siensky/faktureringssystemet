@@ -592,13 +592,10 @@ export function createInvoiceService(sql: Sql, customerService: CustomerService)
      * Beloppet är restskulden plus påminnelseavgiften (domain.md #18) — se
      * zeroVatLine för varför båda raderna är momsfria.
      *
-     * Publicerar MEDVETET inget invoice.sent — documents/e-postutskicket
-     * känner bara till document_type 'invoice'/'credit_note' (fas 4), och
-     * att återanvända invoice.sent skulle ge en påminnelse ett mejl som
-     * säger "Faktura" i stället för "Påminnelse". Att ge påminnelser en
-     * egen leveransväg (event, document_type, ämnesrad) är en egen,
-     * avgränsad ändring i documents (Python) och lämnas därför explicit
-     * utanför den här fasen — se PR-beskrivningen.
+     * Publicerar ETT EGET event, invoice.reminder_sent — inte invoice.sent
+     * (fas 14). documents grenar på eventtypen (document_type/email_type
+     * 'reminder') så att en påminnelse får sin egen PDF-rubrik, ämnesrad
+     * och brevtext i stället för att se ut som en vanlig faktura.
      */
     async createReminderInTx(
       ctx: RequestContext,
@@ -662,8 +659,17 @@ export function createInvoiceService(sql: Sql, customerService: CustomerService)
           items: reminderRows,
           company: settings,
           customer,
+          remindsInvoice: original,
         }),
       );
+
+      await writeEvent(tx, {
+        sourceService: SERVICE_NAME,
+        eventType: "invoice.reminder_sent",
+        tenantId: ctx.tenantId,
+        correlationId: ctx.correlationId,
+        payload: { invoiceId: reminder.id, remindsInvoiceId: original.id },
+      });
 
       await writeAuditLog(tx, {
         tenantId: ctx.tenantId,

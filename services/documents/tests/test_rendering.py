@@ -109,3 +109,26 @@ def test_saknad_adress_ger_tom_lista_inte_krasch():
 
 def test_document_type_of_vanlig_faktura():
     assert document_type_of(_SNAPSHOT) == "invoice"
+
+
+def test_paminnelse_far_ratt_titel_och_referens_till_originalet():
+    snap = {
+        **_SNAPSHOT,
+        "invoice": {
+            **_SNAPSHOT["invoice"],
+            "invoiceType": "reminder",
+            "remindsInvoiceNumber": 1,
+        },
+    }
+    ctx = build_template_context(snap)
+    assert ctx["is_credit_note"] is False
+    assert ctx["is_reminder"] is True
+    assert ctx["title"] == "Påminnelse"
+    assert ctx["reminder_for"] == 1
+    assert document_type_of(snap) == "reminder"
+
+
+def test_paminnelse_utan_remindsinvoicenumber_ger_ingen_krasch():
+    snap = {**_SNAPSHOT, "invoice": {**_SNAPSHOT["invoice"], "invoiceType": "reminder"}}
+    ctx = build_template_context(snap)
+    assert ctx["reminder_for"] is None

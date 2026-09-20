@@ -179,16 +179,24 @@ describe.skipIf(!RUN)("fas 7 e2e — stor svit (hela livscykeln, tvärgående ko
 
   interface MailpitMessage {
     ID: string;
+    Subject: string;
     To: Array<{ Address: string }>;
   }
 
-  async function waitForMail(toAddress: string): Promise<MailpitMessage> {
+  // subjectContains: utan den matchar den FÖRSTA träffen på adressen — en
+  // kund som redan fått ett fakturamejl i samma test (t.ex. innan en
+  // påminnelse skapas) behöver ämnesraden för att skilja de två åt.
+  async function waitForMail(toAddress: string, subjectContains?: string): Promise<MailpitMessage> {
     return until(
       async () => {
         const res = await fetch(`${MAILPIT_URL}/api/v1/messages?limit=200`);
         if (!res.ok) return undefined;
         const body = (await res.json()) as { messages: MailpitMessage[] };
-        return body.messages.find((m) => m.To?.some((t) => t.Address === toAddress));
+        return body.messages.find(
+          (m) =>
+            m.To?.some((t) => t.Address === toAddress) &&
+            (subjectContains === undefined || m.Subject?.includes(subjectContains)),
+        );
       },
       { timeoutMs: 45000 },
     );
@@ -324,6 +332,8 @@ describe.skipIf(!RUN)("fas 7 e2e — stor svit (hela livscykeln, tvärgående ko
     const s = await newAdmin("full3");
     await fillCompanySettings(s);
     const customerId = await makeCustomer(s);
+    const customerRes = await getTo(BILLING_URL, `/admin/customers/${customerId}`, auth(s));
+    const customerEmail = ((await customerRes.json()) as { email: string }).email;
     const original = await sentInvoice(s, customerId);
 
     const bankgiroRes = await getTo(BILLING_URL, "/admin/company-settings", auth(s));
@@ -367,6 +377,21 @@ describe.skipIf(!RUN)("fas 7 e2e — stor svit (hela livscykeln, tvärgående ko
     expect(reminderId).not.toBeNull();
     const reminder = await getInvoice(s, reminderId);
     expect(reminder.totalInclVat).toBe((FULL_AMOUNT_ORE - partialOre + REMINDER_FEE_ORE) / 100);
+
+    // Påminnelsen ska ha sin EGEN leveransväg (fas 14) — eget event
+    // (invoice.reminder_sent), egen PDF (document_type 'reminder') och ett
+    // eget mejl, inte fakturans invoice.sent-väg återanvänd.
+    await waitForDocumentRow(s.tenantId, reminderId);
+    const [reminderDoc] = await sql<{ document_type: string }[]>`
+      SELECT document_type FROM documents WHERE tenant_id = ${s.tenantId} AND invoice_id = ${reminderId}
+    `;
+    expect(reminderDoc!.document_type).toBe("reminder");
+    const reminderMail = await waitForMail(customerEmail, "Påminnelse");
+    expect(reminderMail).toBeDefined();
+    // Beviset att invoice.delivery_updated med documentType 'reminder'
+    // faktiskt passerade billings konsument (inte dead-lettrades av det
+    // gamla tvåvärda enumet) — inte bara att mejlet råkade dyka upp.
+    await until(async () => (await getInvoice(s, reminderId)).deliveryStatus === "sent");
 
     // 3. ANDRA riktiga betalningen — på ORIGINALETS ocr, inte påminnelsens.
     // Kedjeföljningen (superseded_by_invoice_id) ska boka den på påminnelsen.
