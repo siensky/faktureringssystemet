@@ -1,9 +1,11 @@
-// BankID-inloggning. En lyckad signering skapar ALDRIG ett konto
-// (domain.md #22): finns ingen användare med matchande pnr_hash blir det
-// 401. Personnumret hashas med samma HMAC-nyckel som customers.pnr_hmac
-// (planens Personnummer-avsnitt) och lagras aldrig i klartext.
+// BankID-inloggning. En lyckad signering skapar ALLTID en
+// inloggningsidentitet (domain.md #22, omskriven) — men utfärdar bara ett
+// sessions-token om identiteten är länkad till minst en aktiv tenant; utan
+// någon länk är svaret "no_company", inte ett fel. Personnumret hashas med
+// samma HMAC-nyckel som customers.pnr_hmac (planens Personnummer-avsnitt)
+// och lagras aldrig i klartext.
 
-import { Forbidden, Unauthorized, hmacField, normalizePnr } from "@faktura/shared";
+import { Forbidden, hmacField, normalizePnr } from "@faktura/shared";
 import type { Logger } from "@faktura/shared";
 import type Redis from "ioredis";
 import type { Sql } from "postgres";
@@ -14,7 +16,7 @@ import {
 } from "../billing-client";
 import type { config as Config } from "../config";
 import { createSessionIssuer } from "../session";
-import { assertInitRate, recordLoginFailure } from "../throttle";
+import { assertInitRate } from "../throttle";
 import type { BankIdProvider, CollectResult } from "./provider";
 import { type BankIdRepository, createBankIdRepository } from "./repository";
 
@@ -58,17 +60,29 @@ export function createBankIdService(deps: Deps) {
     },
 
     /**
-     * Fas 12: BankID-kundigenkänning, tenant-övergripande. En lyckad
-     * signering skapar ALDRIG en customers-rad (bara en admin gör det) —
-     * den FÅR skapa en users-inloggningsidentitet, en gång, om
-     * personnumret redan matchar minst en privat kund hos NÅGON tenant
-     * (domain.md #22, omskriven scope). Ingen matchning alls -> 401, ingen
-     * rad skapas.
+     * BankID-kundigenkänning, tenant-övergripande. En lyckad signering
+     * skapar ALDRIG en customers-rad (bara en admin gör det) — den skapar
+     * DÄREMOT alltid en users-inloggningsidentitet, en gång, vid första
+     * igenkänningen (domain.md #22, omskriven). Det gäller numera OAVSETT
+     * om personnumret matchar någon kund hos någon tenant — samma mönster
+     * som de flesta jämförbara konsumenttjänster (BankID-signeringen ÄR
+     * legitimationen; att inte ha någon affärsrelation än är inget skäl
+     * att neka inloggningen).
      *
-     * Sessionen förblir enda-tenant precis som alltid — identiteten kan
-     * vara länkad till flera företag, men det utfärdade tokenet gäller
-     * exakt ett (det senast använda, eller första vid en ny identitet).
-     * Att byta företag görs via POST /auth/companies/switch.
+     * Ingen matchning alls ger INGET sessions-token: hela token-/
+     * RequestContext-modellen (architecture.md #21, #13) kräver ett
+     * tenantId, och en nyskapad identitet utan en enda länk har uppriktigt
+     * inget att sätta det till. `status: "no_company"` signalerar det
+     * distinkt till frontend, som visar ett tomt "inga utgifter än"-läge
+     * direkt ur det här svaret utan att försöka logga in i något företag.
+     * Den dagen en admin lägger till personen som kund hos ett företag och
+     * hen loggar in med BankID igen, hittar samma identitetsrad (unikt
+     * index på pnr_hash) den nya länken och en riktig session utfärdas.
+     *
+     * Sessionen förblir enda-tenant precis som alltid när den utfärdas —
+     * identiteten kan vara länkad till flera företag, men det utfärdade
+     * tokenet gäller exakt ett (det senast använda, eller första vid en ny
+     * identitet). Att byta företag görs via POST /auth/companies/switch.
      */
     async collect(orderRef: string, correlationId: string) {
       const result: CollectResult = await deps.provider.collect(orderRef);
@@ -88,13 +102,6 @@ export function createBankIdService(deps: Deps) {
         }
       }
 
-      if (activeMatches.length === 0) {
-        // Ingen matchande privatkund hos någon aktiv tenant -> avvisa.
-        // Inget konto skapas.
-        await recordLoginFailure(deps.redis, `bankid:${pnrHash}`);
-        throw new Unauthorized("Ingen kund kopplad till detta BankID");
-      }
-
       const identity = await deps.sql.begin(async (tx) => {
         const user = await repo.findOrCreateBankIdCustomerIdentity(tx, pnrHash);
         await repo.syncCompanyLinks(tx, user.id, activeMatches);
@@ -103,7 +110,12 @@ export function createBankIdService(deps: Deps) {
 
       const links = await repo.listCompanyLinks(identity.id);
       const active = links[0];
-      if (!active) throw new Error("Inga företagslänkar trots minst en aktiv matchning");
+      if (!active) {
+        // Identiteten finns nu (eller fanns redan), men är inte länkad
+        // till någon aktiv tenant. Se docstringen ovan för varför inget
+        // token utfärdas här.
+        return { status: "no_company" as const, companies: [] as const };
+      }
       await repo.touchLink(identity.id, active.tenant_id);
 
       const tokens = await sessionIssuer.issue({

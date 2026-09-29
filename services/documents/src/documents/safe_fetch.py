@@ -5,7 +5,7 @@ sätter via `PUT /admin/company-settings` i billing (1–500 tecken, ett
 https-mönster men ingen adressvalidering). WeasyPrints DEFAULT url_fetcher
 hämtar vad den än får serverside och följer omdirigeringar internt —
 `http://169.254.169.254/latest/meta-data/` (molnmetadata),
-`http://billing:4002/internal/...` eller `http://minio:9000/...` renderas
+`http://billing:4002/internal/...` eller `http://s3:9090/...` renderas
 rakt in i PDF:en, som sedan mejlas till kunden och läggs i S3. En komplett
 läs-SSRF med exfiltreringsväg (PR-granskning fas 4, punkt 1).
 

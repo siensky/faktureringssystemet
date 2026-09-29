@@ -16,7 +16,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Något gick fel");
     } finally {
@@ -31,7 +31,7 @@ export function LoginPage() {
         className="w-full max-w-sm rounded-2xl border border-ink-100 bg-white p-8 shadow-lg shadow-ink-900/5"
       >
         <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-ink-900">
-          <span className="text-sm font-bold text-mint-300">F</span>
+          <span className="text-sm font-bold text-sienna-300">F</span>
         </div>
         <h1 className="mb-6 text-xl font-semibold tracking-tight text-ink-900">Mina sidor</h1>
         {error && <p className="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -73,7 +73,7 @@ export function LoginPage() {
         <p className="mt-2 text-center text-sm">
           <Link
             to="/login/bankid"
-            className="font-medium text-ink-700 underline decoration-mint-400 decoration-2 underline-offset-2"
+            className="font-medium text-ink-700 underline decoration-sienna-400 decoration-2 underline-offset-2"
           >
             Logga in med BankID
           </Link>

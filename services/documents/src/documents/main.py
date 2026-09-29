@@ -72,10 +72,11 @@ async def lifespan(_app: FastAPI):
         on_ping=lambda msg: logger.info("mottog system.ping", **{"from": msg["service"]}),
     )
 
-    # Bucketen skapas av infra/minio/init.sh (körs FÖRE documents, se
-    # docker-compose.yml) med MinIO-root. documents kör med en EGEN,
-    # bucket-begränsad nyckel och saknar (avsiktligt) rättighet att skapa
-    # bucketar — se s3.py:s moduldoc, PR-granskning fas 4, punkt 13.
+    # Bucketen skapas av S3-tjänsten själv vid uppstart lokalt/CI (adobe/
+    # s3mock, se docker-compose.yml) eller i förväg i produktion, med en
+    # EGEN, bucket-begränsad nyckel — documents saknar (avsiktligt)
+    # rättighet att skapa bucketar. Se s3.py:s moduldoc, PR-granskning
+    # fas 4, punkt 13.
     s3_store = S3Store(settings)
 
     publisher_channel = await rabbit.connection.channel()

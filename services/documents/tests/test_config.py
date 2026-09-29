@@ -7,7 +7,7 @@ _FULL_ENV = {
     "REDIS_URL": "redis://localhost",
     "DATABASE_URL": "postgresql://localhost/db",
     "JWT_SERVICE_SECRET": "svc-secret",
-    "S3_ENDPOINT": "http://minio:9000",
+    "S3_ENDPOINT": "http://s3:9090",
     "S3_BUCKET": "invoices",
     "S3_ACCESS_KEY_ID": "key",
     "S3_SECRET_ACCESS_KEY": "secret",
@@ -29,7 +29,7 @@ def test_load_settings_med_alla_nycklar():
     assert settings.billing_base_url == "http://billing:4002"
     assert settings.auth_base_url == "http://auth:4001"
     # publikt S3-endpoint faller tillbaka på det interna om inte satt
-    assert settings.s3_public_endpoint == "http://minio:9000"
+    assert settings.s3_public_endpoint == "http://s3:9090"
     # Minsta möjliga scope (architecture.md #18) — BillingClient anropar
     # bara snapshot-endpointen.
     assert settings.documents_client_scopes == ["billing:invoice:read"]
@@ -78,10 +78,10 @@ def test_load_settings_tom_strang_raknas_som_saknad():
 
 def test_s3_public_endpoint_kan_overridas():
     env = dict(_FULL_ENV)
-    env["S3_PUBLIC_ENDPOINT"] = "http://localhost:9000"
+    env["S3_PUBLIC_ENDPOINT"] = "http://localhost:9090"
     settings = load_settings(env)
-    assert settings.s3_public_endpoint == "http://localhost:9000"
-    assert settings.s3_endpoint == "http://minio:9000"
+    assert settings.s3_public_endpoint == "http://localhost:9090"
+    assert settings.s3_endpoint == "http://s3:9090"
 
 
 def test_cors_origin_splittas_pa_komma():

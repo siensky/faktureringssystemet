@@ -174,9 +174,19 @@ describe.skipIf(!RUN)("fas 9 e2e — kundportal", () => {
 
     const me = await get("/auth/me", { authorization: `Bearer ${tokens.accessToken}` });
     expect(me.status).toBe(200);
-    const meBody = (await me.json()) as { role: string; customerId: number | null };
+    const meBody = (await me.json()) as {
+      role: string;
+      customerId: number | null;
+      customerName: string | null;
+    };
     expect(meBody.role).toBe("customer");
     expect(meBody.customerId).toBe(customerId);
+    // auth hämtar namnet från billings kundregister (S2S) — inte bara
+    // vidarebefordrar ett null-fält. tenantName är FÖRETAGET; customerName
+    // är personen/företaget som är inloggad, och de ska aldrig blandas ihop.
+    const customerRes = await getTo(BILLING_URL, `/admin/customers/${customerId}`, auth(admin));
+    const { name: expectedName } = (await customerRes.json()) as { name: string };
+    expect(meBody.customerName).toBe(expectedName);
 
     const again = await postTo(
       AUTH_URL,

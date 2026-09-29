@@ -31,9 +31,9 @@ class Settings:
     # Säkerhet-avsnitt, punkt 1).
     jwt_service_secret: str
 
-    # S3 / MinIO. s3_endpoint används internt (put/head); s3_public_endpoint
-    # för signerade URL:er som ska nås av en webbläsare (fas 9-portalen) —
-    # `minio:9000` är inte nåbart utanför Docker-nätet.
+    # S3 (adobe/s3mock lokalt/CI). s3_endpoint används internt (put/head);
+    # s3_public_endpoint för signerade URL:er som ska nås av en webbläsare
+    # (fas 9-portalen) — `s3:9090` är inte nåbart utanför Docker-nätet.
     s3_endpoint: str
     s3_public_endpoint: str
     s3_region: str

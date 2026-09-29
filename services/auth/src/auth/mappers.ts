@@ -23,6 +23,7 @@ export function toCurrentUserView(
     tenant_name: string;
   },
   companies?: { tenant_id: number; tenant_name: string; customer_id: number }[],
+  customerName?: string | null,
 ): CurrentUserDto {
   return {
     userId: row.id,
@@ -31,6 +32,7 @@ export function toCurrentUserView(
     email: row.email,
     role: row.role,
     customerId: row.customer_id,
+    customerName: customerName ?? null,
     ...(companies && {
       companies: companies.map((c) => ({
         tenantId: c.tenant_id,

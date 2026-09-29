@@ -35,9 +35,9 @@ Tester skrivs **under** utvecklingen, inte efter. En fas är inte klar förrän 
 8. **Ett test bevisar en sak.** Går det sönder ska namnet räcka för att veta vad som gick fel.
 9. **Namnge efter beteende, inte metod:** `returnerar 404 när fakturan tillhör annan tenant`, inte `test getInvoice`.
 10. **Inga beroenden mellan tester.** Varje test sätter upp sin egen data och kan köras ensamt.
-11. **Ingen delad databas mellan tester som kör parallellt** — men vad "egen" betyder skiljer sig åt beroende på testnivå:
+11. **Delad databas är okej — delad data är det inte.** Vad "isolerad" betyder skiljer sig åt beroende på testnivå:
     - **Integrationstester i samma process** (ett repository-test som pratar med riktig Postgres): egen transaktion som rullas tillbaka i slutet.
-    - **E2e-tester över HTTP och RabbitMQ**: en transaktionsrollback räcker INTE — flera anslutningar (klienten, tjänsten, en eventuell konsument) ser inte varandras öppna transaktion. Använd ett eget schema per test eller en egen Testcontainers-container i stället.
+    - **E2e-tester över HTTP och RabbitMQ**: en transaktionsrollback räcker INTE — flera anslutningar (klienten, tjänsten, en eventuell konsument) ser inte varandras öppna transaktion. I praktiken delar alla e2e-tester en och samma databas (`e2e/helpers.ts`) och isoleras i stället genom att **aldrig dela data**: varje test skapar sin egen tenant med slumpade identifierare (`uniq()`), så två tester kan aldrig råka peka på samma rader oavsett körordning. Ett eget schema per test eller en egen Testcontainers-container hade också fungerat, men är inte vad koden faktiskt gör — den här regeln beskriver den vägen, inte den andra.
 12. **Mocka bara det du inte äger** — BankID, e-postleverantör, betalleverantör. Mocka aldrig din egen databas; då testar du din mock.
 13. **Testa gränsfallen, inte bara det lyckade fallet.** Noll rader, negativa belopp, saknad tenant, dubblettevent, utgången token.
 14. **Coverage-krav: ≥ 90 % på ren affärslogik** (`services/**/services/**` i TS, motsvarande i Python) — inte en global siffra, som bara belönar tester på getters och mappers.

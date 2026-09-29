@@ -1,4 +1,5 @@
-"""S3-lagring via boto3 (MinIO lokalt/CI). boto3-klienter är trådsäkra och
+"""S3-lagring via boto3 (adobe/s3mock lokalt/CI, en riktig S3-bucket i
+produktion — samma klientkod mot båda). boto3-klienter är trådsäkra och
 byggs EN gång i S3Store.__init__ — att konstruera en ny klient per anrop
 (som en tidigare version av den här modulen gjorde) laddar botocores
 servicemodeller från disk varje gång, tiotals till hundratals ms blockerad
@@ -11,10 +12,13 @@ värden som UNIQUE-nyckeln i `documents` — så samma event två gånger skrive
 samma objekt till samma nyckel (planens idempotensavsnitt #5). Ingen
 `document-1.pdf` / `document-2.pdf`.
 
-Bucketen skapas INTE härifrån — det gör infra/minio/init.sh, en gång, med
-MinIO-root. documents kör med en EGEN nyckel som bara har GetObject/
-PutObject/ListBucket på just den bucketen (PR-granskning fas 4, punkt 13);
-den nyckeln saknar rättighet att skapa bucketar, och ska sakna den.
+Bucketen skapas INTE härifrån. I produktion: en gång, i förväg, med en
+EGEN nyckel som bara har GetObject/PutObject/ListBucket på just den
+bucketen (PR-granskning fas 4, punkt 13) — den nyckeln saknar rättighet
+att skapa bucketar, och ska sakna den. Lokalt/CI: adobe/s3mock skapar
+bucketen själv vid uppstart (docker-compose.yml,
+COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS) — mocken har inget
+IAM-system, så den begränsningen har ingen effekt där.
 """
 
 from __future__ import annotations
@@ -41,9 +45,9 @@ def _build_client(settings: Settings, *, public: bool):
         region_name=settings.s3_region,
         aws_access_key_id=settings.s3_access_key_id,
         aws_secret_access_key=settings.s3_secret_access_key,
-        # MinIO svarar inte på virtual-host-style (bucket.host) — tvinga
-        # path-style, annars pekar signerade URL:er på ett värdnamn som
-        # inte finns.
+        # Varken s3mock eller MinIO (innan bytet, se docker-compose.yml)
+        # svarar på virtual-host-style (bucket.host) — tvinga path-style,
+        # annars pekar signerade URL:er på ett värdnamn som inte finns.
         config=BotoConfig(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
