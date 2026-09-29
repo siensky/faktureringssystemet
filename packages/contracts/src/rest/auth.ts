@@ -19,6 +19,15 @@ export interface CurrentUserDto {
   role: UserRole;
   /** Fas 9: bara satt för role: "customer" — portalens egen kund-id. */
   customerId: number | null;
+  /**
+   * Kundens eget namn i billings kundregister (`customers.name`) — bara
+   * satt för role: "customer". `null` inte bara för admin utan även om
+   * uppslaget mot billing (S2S) misslyckades — /auth/me degraderar då
+   * snarare än att slå fel, se services/auth/src/auth/services.ts:me().
+   * Skiljs från `tenantName`, som alltid är FÖRETAGET vars portal man
+   * tittar i, inte personen som är inloggad.
+   */
+  customerName: string | null;
   /** Fas 12: bara satt för en BankID-kundidentitet med minst ett länkat företag. */
   companies?: CompanyLinkDto[];
 }

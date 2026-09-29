@@ -9,6 +9,12 @@ export function ProfilePage() {
       <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink-900">Profil</h1>
       <div className="max-w-md rounded-xl border border-ink-100 bg-white p-6 shadow-sm">
         <dl className="divide-y divide-ink-50 text-sm">
+          {user?.customerName && (
+            <div className="flex items-center justify-between py-3">
+              <dt className="text-mist-500">Namn</dt>
+              <dd className="font-medium text-ink-900">{user.customerName}</dd>
+            </div>
+          )}
           <div className="flex items-center justify-between py-3">
             <dt className="text-mist-500">Företag</dt>
             <dd className="font-medium text-ink-900">{user?.tenantName}</dd>

@@ -199,7 +199,33 @@ export function createAuthService(deps: Deps) {
       // Undviker en extra DB-fråga för varje lösenordskund (kodgranskning
       // fas 12) — role === "customer" ensamt skulle triggat den även för dem.
       const companies = !primary ? await bankIdRepo.listCompanyLinks(ctx.userId) : undefined;
-      return toCurrentUserView(row, companies?.length ? companies : undefined);
+
+      // Kundens eget namn bor i billings customers-tabell, inte här —
+      // samma S2S-uppslag POST /auth/customer-invites redan använder för
+      // att validera customerId (findCustomer). En läsning, degraderar
+      // snarare än slår fel: /auth/me anropas vid varje sidladdning
+      // (AuthContext), och ett kort billing-hack ska inte kunna logga ut
+      // en kund som redan har en giltig session — samma resonemang som
+      // overview()s Promise.allSettled för ett enskilt trögt företag.
+      let customerName: string | null = null;
+      if (row.customer_id !== null) {
+        try {
+          const customer = await findCustomer(
+            redis,
+            row.tenant_id,
+            row.customer_id,
+            ctx.correlationId,
+          );
+          customerName = customer?.name ?? null;
+        } catch (error) {
+          logger.warn(
+            { err: error, userId: ctx.userId, customerId: row.customer_id },
+            "auth/me: kunde inte hämta kundens namn från billing, degraderar utan det",
+          );
+        }
+      }
+
+      return toCurrentUserView(row, companies?.length ? companies : undefined, customerName);
     },
 
     async refresh(refreshToken: string) {

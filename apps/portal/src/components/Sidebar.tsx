@@ -29,13 +29,20 @@ export function Sidebar() {
     <aside className="flex h-screen w-60 flex-none flex-col bg-ink-900 text-white">
       <div className="flex items-center gap-2.5 px-5 py-6">
         <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-sienna-300">
-          {user?.tenantName?.charAt(0).toUpperCase() ?? "F"}
+          {(user?.customerName ?? user?.tenantName)?.charAt(0).toUpperCase() ?? "F"}
         </span>
         <div className="min-w-0">
+          {/* customerName kommer från billings kundregister via ett S2S-
+              uppslag i GET /auth/me (services/auth/src/auth/services.ts) —
+              själva personen/kunden som är inloggad, till skillnad från
+              tenantName som är FÖRETAGET vars fakturor man ser. Faller
+              tillbaka till bara tenantName om uppslaget misslyckats. */}
           <div className="truncate text-sm font-semibold tracking-tight text-white">
-            {user?.tenantName ?? "Mina sidor"}
+            {user?.customerName ?? user?.tenantName ?? "Mina sidor"}
           </div>
-          <div className="text-xs text-mist-400">Kundportal</div>
+          <div className="truncate text-xs text-mist-400">
+            {user?.customerName && user?.tenantName ? `Kund hos ${user.tenantName}` : "Kundportal"}
+          </div>
         </div>
       </div>
 
