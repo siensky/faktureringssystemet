@@ -167,51 +167,45 @@ services:
       - ./infra/rabbitmq/init.sh:/init.sh:ro
     entrypoint: ["sh", "/init.sh"]
 
-  minio:
-    # quay.io, inte Docker Hub: minio/minio och minio/mc gick inte längre
-    # att dra anonymt från Docker Hub (pull access denied) — MinIO har
-    # flyttat sin publika distribution dit. Förbefintligt, orört av
-    # fas 5:s betalningslogik, men blockerade docker-build-and-smoke-test
-    # i CI för PR #5 tills det upptäcktes och fixades här.
-    image: quay.io/minio/minio:latest
-    container_name: invoice_minio
+  # S3-kompatibel lagring för lokal utveckling/CI. Var tidigare MinIO
+  # (quay.io/minio/minio + quay.io/minio/mc för bucket-/nyckelsetup) —
+  # bytt 2026-09-29 sedan MinIO stängde publik åtkomst till sina images
+  # helt, på både Docker Hub och quay.io (samma sak som redan en gång
+  # tvingade ett byte FRÅN Docker Hub TILL quay.io, se git-historiken för
+  # den här filen). Verifierat innan bytet: samma fel (401/unauthorized)
+  # dyker upp mot docker.io, quay.io OCH ghcr.io — inte en tillfällig
+  # quay.io-hicka.
+  #
+  # adobe/s3mock: en JVM-baserad testdubblett byggd specifikt för att
+  # testa S3-klientkod mot, inte ett riktigt lagringssystem som råkar
+  # kunna användas så. Konsekvensen: den har inget IAM/policy-system —
+  # den validerar varken åtkomstnycklar eller presignerade URL:ers
+  # signatur/förfallotid (se dokumentationen). documents-tjänstens EGNA,
+  # bucket-begränsade nyckel (PR-granskning fas 4, punkt 13) är alltså
+  # bara meningsfull mot en RIKTIG S3-driftsättning nu — här är den kvar
+  # som namn/miljövariabel för att koden ska vara identisk mot prod, men
+  # ger ingen faktisk isolering mot den här mocken. Ingen separat
+  # init-container behövs längre: bucketen skapas av s3mock själv vid
+  # uppstart via COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS.
+  s3:
+    image: adobe/s3mock:latest
+    container_name: invoice_s3
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${S3_BUCKET:-invoices}
     ports:
-      - "${MINIO_PORT}:9000"
-      - "${MINIO_CONSOLE_PORT}:9001"
-    volumes:
-      - minio_data:/data
+      - "${S3_PORT}:9090"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      # Ingen /health-endpoint dokumenterad (bara actuator, avstängt som
+      # standard) — roten svarar 200 så fort Tomcat är uppe, vilket räcker
+      # för att veta att API:et tar emot anrop. JVM-kallstart tar märkbart
+      # längre än MinIOs gamla healthcheck gjorde — därav den generösa
+      # start_period.
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9090/"]
       interval: 5s
       timeout: 3s
-      retries: 10
-      start_period: 5s
-
-  # Engångscontainer: skapar bucketen och en S3-nyckel SKILD från
-  # MinIO-root, begränsad till bara den bucketen (infra/minio/init.sh).
-  # documents får ALDRIG MinIO-root — samma resonemang som planens fas 7
-  # för separata Postgres-roller (PR-granskning fas 4, punkt 13).
-  minio-init:
-    image: quay.io/minio/mc:latest
-    container_name: invoice_minio_init
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      # mc autentiserar mot alias:et "local" som MinIO-root via den här —
-      # ingen separat `mc alias set`-körning behövs.
-      MC_HOST_local: http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000
-      S3_BUCKET: ${S3_BUCKET:-invoices}
-      S3_ACCESS_KEY_ID: ${DOCUMENTS_S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${DOCUMENTS_S3_SECRET_ACCESS_KEY}
-    volumes:
-      - ./infra/minio/init.sh:/init.sh:ro
-    entrypoint: ["sh", "/init.sh"]
+      retries: 15
+      start_period: 45s
 
   mailpit:
     image: axllent/mailpit:latest
@@ -446,14 +440,16 @@ services:
       # Verifierar tjänste-JWT (aud: internal). ALDRIG JWT_USER_SECRET —
       # documents har inga användar-endpoints (planens Säkerhet #1).
       JWT_SERVICE_SECRET: ${JWT_SERVICE_SECRET}
-      # S3 / MinIO. S3_ENDPOINT nås internt; S3_PUBLIC_ENDPOINT används i
-      # signerade URL:er som en webbläsare (fas 9-portalen) ska kunna följa.
-      S3_ENDPOINT: http://minio:9000
-      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:${MINIO_PORT}}
+      # S3 (adobe/s3mock lokalt/CI, en riktig S3-bucket i produktion).
+      # S3_ENDPOINT nås internt; S3_PUBLIC_ENDPOINT används i signerade
+      # URL:er som en webbläsare (fas 9-portalen) ska kunna följa.
+      S3_ENDPOINT: http://s3:9090
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:${S3_PORT}}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-invoices}
-      # EGEN nyckel, begränsad till S3_BUCKET av minio-init — INTE
-      # MinIO-root (PR-granskning fas 4, punkt 13).
+      # I produktion: EGEN nyckel, begränsad till S3_BUCKET (PR-granskning
+      # fas 4, punkt 13) — se kommentaren vid s3-tjänsten ovan för varför
+      # den begränsningen inte har någon effekt mot testdubbletten här.
       S3_ACCESS_KEY_ID: ${DOCUMENTS_S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${DOCUMENTS_S3_SECRET_ACCESS_KEY}
       PDF_URL_TTL_SECONDS: ${PDF_URL_TTL_SECONDS:-900}
@@ -482,7 +478,7 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      minio:
+      s3:
         condition: service_healthy
       mailpit:
         condition: service_healthy
@@ -525,4 +521,3 @@ services:
 
 volumes:
   postgres_data:
-  minio_data:

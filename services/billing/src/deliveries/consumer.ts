@@ -15,7 +15,7 @@
 //                                   bearbetningsförsök alls gjorts, och
 //                                   skulle då ge upp redan på det första
 //                                   riktiga försöket (typiskt just när
-//                                   billing/MinIO/DB inte är varma än).
+//                                   billing/S3/DB inte är varma än).
 //                                   Försöket görs om genom att ack:a
 //                                   originalet och publicera en kopia med
 //                                   x-attempts+1 till samma kö — headern

@@ -34,7 +34,7 @@ Granskningen läste den *förra* planen, så några punkter var redan lösta: CD
 | Betalningar | **`invoice_payments`, en rad per betalning** — `paid_ore` beräknas, lagras aldrig | Dubbletter blir unique-violation i stället för fel saldo |
 | Redis | Rate limiting-räknare, cron-lås, cache av tjänste-tokens | Det som är ofarligt att tappa vid omstart |
 | Cron | I billing, Redis-lås som optimering, **DB-villkoret som garanti** | Ett lås som löper ut mitt i jobbet ger två körningar |
-| Filer | Amazon S3 (boto3), MinIO som lokal/CI-endpoint | Samma SDK, bara annan endpoint-URL |
+| Filer | Amazon S3 (boto3), `adobe/s3mock` som lokal/CI-endpoint (bytt från MinIO 2026-09-29, se `docker-compose.yml`) | Samma SDK, bara annan endpoint-URL |
 | E-post | `EmailProvider`-gränssnitt, Mailpit lokalt | Inga riktiga mejl skickas av misstag |
 | Betalningar in | Mockad BgMax-fil + webhook, båda idempotenta | Kunden betalar i sin bank |
 | Validering | Rena JSON Schema-filer i `packages/contracts`, TS-typer **genereras** ur dem | Ett schema, tre konsumenter: Fastify, TS-typer, Python |

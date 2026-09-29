@@ -221,7 +221,7 @@ cylinder(PG[0], PG[1], PG_W, 100, ["PostgreSQL — one shared instance",
                                    "every service owns its tables, nobody reads another's"])
 
 cylinder(RD[0], RD[1], 190, 100, ["Redis", "service-token cache", "rate limiting"])
-box(S3[0], S3[1], 210, 96, ["MinIO (S3)", "invoice PDFs", "signed, time-limited URLs"], DB_F, DB_B, title_sz=11.5)
+box(S3[0], S3[1], 210, 96, ["S3", "invoice PDFs", "signed, time-limited URLs"], DB_F, DB_B, title_sz=11.5)
 box(MP[0], MP[1], 210, 96, ["SMTP", "Mailpit in dev", "real provider in prod"], EXT_F, EXT_B, title_sz=11.5)
 
 # ================= EVENT-TABELL ============================================

@@ -137,10 +137,7 @@ jobs:
           LOG_LEVEL=info
           NGINX_PORT=8080
           PNR_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
-          MINIO_ROOT_USER=ci_minio
-          MINIO_ROOT_PASSWORD=ci_password_not_secret
-          MINIO_PORT=9000
-          MINIO_CONSOLE_PORT=9001
+          S3_PORT=9090
           MAILPIT_SMTP_PORT=1025
           MAILPIT_UI_PORT=8025
           NODE_ENV=test
@@ -159,7 +156,7 @@ jobs:
           PNR_HMAC_KEY=000000000000000000000000000000000000000000000000000000000000abcd
           S3_BUCKET=invoices
           S3_REGION=us-east-1
-          S3_PUBLIC_ENDPOINT=http://localhost:9000
+          S3_PUBLIC_ENDPOINT=http://localhost:9090
           PDF_URL_TTL_SECONDS=900
           DOCUMENTS_S3_ACCESS_KEY_ID=ci_documents_s3_key
           DOCUMENTS_S3_SECRET_ACCESS_KEY=ci_documents_s3_secret_not_a_real_secret

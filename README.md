@@ -78,7 +78,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Migrations run automatically as part of the startup sequence (the `migrate` container runs once and exits before any service starts) — no separate migration command needed. This brings up all four services behind nginx on `localhost:8080`, plus Postgres, Redis, RabbitMQ, MinIO (S3-compatible storage) and Mailpit (catches outgoing email locally instead of sending it, browsable at `localhost:8025`).
+Migrations run automatically as part of the startup sequence (the `migrate` container runs once and exits before any service starts) — no separate migration command needed. This brings up all four services behind nginx on `localhost:8080`, plus Postgres, Redis, RabbitMQ, an S3-compatible test double (`adobe/s3mock`) and Mailpit (catches outgoing email locally instead of sending it, browsable at `localhost:8025`).
 
 Wait for every container to report `healthy` (`docker compose ps`), then confirm the gateway is up:
 
@@ -99,7 +99,7 @@ cd apps/portal && bun run dev       # localhost:5174 — for their customers
 - **Backoffice** (`localhost:5173`): register a new account (there's no seeded login — the first visit creates one), fill in company details under settings, add a customer, create and send an invoice.
 - **Payments**: send a mock bank payment with the invoice's OCR reference to `POST localhost:8080/webhooks/payment` (see `e2e/helpers.ts` for a working signed-request example) and watch the invoice flip to `paid`.
 - **Portal** (`localhost:5174`): the customer you just billed can log in with the password you set for them (via a customer invite from backoffice) or with BankID — `BANKID_PROVIDER=mock` by default, so signing in doesn't require a real BankID app; any personal number completes instantly except the two sentinel values documented in `services/auth/src/bankid/provider.ts`.
-- **Generated PDFs** land in MinIO and get emailed through Mailpit — open `localhost:8025` to see them without a real inbox.
+- **Generated PDFs** land in the S3-compatible storage and get emailed through Mailpit — open `localhost:8025` to see them without a real inbox.
 
 ### 4. Run the tests
 
