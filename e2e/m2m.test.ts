@@ -194,7 +194,7 @@ describe.skipIf(!RUN)("fas 2 e2e — M2M + BankID", () => {
   });
 
   describe("BankID (mock)", () => {
-    test("okänt personnummer -> 401, inget konto skapas", async () => {
+    test("okänt personnummer -> 200 no_company, identiteten skapas ändå men utan sessions-token", async () => {
       const pnr = "199001019999";
       const before = await sql`
         SELECT count(*)::int AS n FROM users WHERE pnr_hash = ${hmacField(pnr, PNR_HMAC_KEY)}
@@ -204,12 +204,22 @@ describe.skipIf(!RUN)("fas 2 e2e — M2M + BankID", () => {
       const { orderRef } = (await init.json()) as { orderRef: string };
 
       const collect = await post("/auth/bankid/collect", { orderRef });
-      expect(collect.status).toBe(401);
+      expect(collect.status).toBe(200);
+      const body = (await collect.json()) as { status: string; companies: unknown[] };
+      expect(body.status).toBe("no_company");
+      expect(body.companies).toEqual([]);
+      // Inget accessToken/refreshToken i svaret — no_company utfärdar
+      // uttryckligen ingen session (services/auth/src/bankid/services.ts,
+      // domain.md #22).
+      expect(body).not.toHaveProperty("accessToken");
 
+      // Identiteten SKAPAS numera ändå (domain.md #22, omskriven i fas 15)
+      // — bara sessions-utfärdandet krävde tidigare en matchning, inte
+      // kontot självt.
       const after = await sql`
         SELECT count(*)::int AS n FROM users WHERE pnr_hash = ${hmacField(pnr, PNR_HMAC_KEY)}
       `;
-      expect(after[0]!.n).toBe(before[0]!.n);
+      expect(after[0]!.n).toBe(before[0]!.n + 1);
     });
 
     test("pending-sentinel -> pending, failed-sentinel -> failed", async () => {

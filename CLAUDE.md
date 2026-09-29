@@ -4,19 +4,20 @@ Multi-tenant SaaS för fakturering med automatisk betalningsmatchning. Fyra tjä
 
 ## Arbetssätt — läs detta först
 
-**Claude implementerar, Sienna granskar.** Det här är en ändring från projektets tidigare regel (implementationskod skrevs tidigare av Sienna själv för att öva) — beslutad av Sienna 2026-09-09 i planeringssamtalet inför den fulla byggfasen.
+**Claude implementerar, Sienna granskar.** Beslutat av Sienna 2026-09-09 i planeringssamtalet inför den fulla byggfasen (tidigare skrevs implementationskoden av Sienna själv, för att öva).
 
 - Arbete sker på en egen branch per fas (`fas0/fundament`, `fas1/auth`, …), aldrig direkt på `main`.
 - Varje fas avslutas med en pull request: vad och varför, Definition of Done avbockad ([rules/testing.md](rules/testing.md)), grön CI. Claude stannar där och väntar på Siennas granskning — nästa fas börjar inte förrän PR:en är godkänd och mergad, om inte Sienna uttryckligen säger åt Claude att merga själv för den fasen.
 - En fas som blir för stor för en läsbar diff (billing-kärnan, den stora e2e-sviten) delas i flera PR:ar inom samma branch-prefix.
-- Planen som styr arbetet ligger i [PLAN.md](PLAN.md) och i den senast godkända plan-filen i `~/.claude/plans/`. Läs den innan en fas påbörjas.
+- **Committa eller pusha aldrig utan att Sienna uttryckligen bett om det** — gäller varje ändring, även en liten fix mitt i en redan godkänd fas.
+- Planen som styr arbetet ligger i [PLAN.md](PLAN.md). Läs den innan en fas påbörjas, i stället för att gissa om ett beslut redan är taget.
 
 AI-hjälp är fortsatt värdefull utöver implementationen: frågor, förklaringar, granskning, felsökning, planering och dokumentation.
 
 ## Dokument
 
-- [PLAN.md](PLAN.md) — arkitektur och alla faser. Läs den innan du svarar på designfrågor i stället för att härleda om beslut.
-- [rules/](rules/) — reglerna all kod följer. Numrerade så de kan citeras: "bryter mot `database.md` #18".
+- [PLAN.md](PLAN.md) — arkitektur, alla beslut och samtliga faser. Läs den innan du svarar på designfrågor i stället för att härleda om beslut.
+- [rules/](rules/) — reglerna all kod följer, en fil per område. Numrerade så de kan citeras: "bryter mot `database.md` #18".
 
 | Fil | Innehåll |
 |---|---|
@@ -39,4 +40,11 @@ AI-hjälp är fortsatt värdefull utöver implementationen: frågor, förklaring
 
 ## Status
 
-Fas 0–6 mergade. Fas 7 (härdning: separata Postgres-roller med GRANT bara på egna tabeller, larm på dead-letter/omatchade transaktioner via GET /internal/ops/alerts i billing, riktig RabbitMQ-dead-letter i documents, samt en stor tvärgående e2e-svit) är byggd på branchen `fas7` men ännu inte commitad eller en PR. Full arkitektur: se plan-filen i `~/.claude/plans/`.
+**Fas 0–14 mergade till `main`** (PR #1–#12 och #16 — se `PLAN.md` för vad varje fas innehåller; PR #13–15 var README- och CI-fixar, ingen egen fas):
+
+fundament · auth/tenancy/M2M · billing-kärnan · documents (PDF/e-post) · payments (bankgiro/OCR) · automatisering (cron, påminnelser, återkommande fakturor) · härdning (Postgres-roller, e2e-svit) · backoffice · kundportal · Stripe-betalning i portalen · riktig BankID · BankID-igenkänning tenant-övergripande · påminnelser med egen leveransväg.
+
+**Pågående, ocommitat arbete** på branchen `fixes` — väntar på Siennas granskning innan commit:
+- Tre uppföljningar från en systemdesigngranskning (tidsgräns på payments→billing-anropet, mjukare formulering i `PLAN.md` om vad `PNR_HMAC_KEY` faktiskt skyddar mot, ärligare CI-kommentar om coverage-kravet).
+- BankID-inloggning skapar nu alltid ett konto, även utan befintlig kundkoppling (`no_company`-läge i stället för `401`).
+- Ny kunddashboard, permanent sidomeny i båda frontend-apparna, ny färgpalett (sienna-accent), och en publik landningssida i kundportalen.

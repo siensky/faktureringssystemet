@@ -171,7 +171,7 @@ describe("bankid/services.ts init() — personalNumber är valfritt", () => {
 });
 
 describe("bankid/services.ts collect() — tenant-övergripande igenkänning (fas 12)", () => {
-  test("inga matchningar -> Unauthorized, ingen identitet skapas", async () => {
+  test("inga matchningar -> identiteten skapas ändå, men no_company utan sessions-token", async () => {
     const { repo, calls } = makeFakeRepo();
     const service = createBankIdService({
       sql: makeFakeSql(),
@@ -182,13 +182,17 @@ describe("bankid/services.ts collect() — tenant-övergripande igenkänning (fa
       findCustomersByPnrHmac: async () => [],
     });
 
-    await expect(service.collect("order-1", "corr-1")).rejects.toThrow(
-      "Ingen kund kopplad till detta BankID",
-    );
-    expect(calls.findOrCreate).toBe(0);
+    const result = await service.collect("order-1", "corr-1");
+
+    expect(result).toEqual({ status: "no_company", companies: [] });
+    // Identiteten skapas ALLTID vid en lyckad signering (domain.md #22,
+    // omskriven) — bara sessions-utfärdandet är villkorat av en länk.
+    expect(calls.findOrCreate).toBe(1);
+    expect(calls.syncCompanyLinks).toEqual([{ userId: 999, matches: [] }]);
+    expect(calls.touchLink).toEqual([]);
   });
 
-  test("matchningar finns men alla tenants avstängda -> Unauthorized, ingen identitet skapas", async () => {
+  test("matchningar finns men alla tenants avstängda -> no_company, ingen länk kvar efter synk", async () => {
     const { repo, calls } = makeFakeRepo({
       tenantStatuses: { 1: "suspended", 2: "suspended" },
     });
@@ -204,10 +208,14 @@ describe("bankid/services.ts collect() — tenant-övergripande igenkänning (fa
       ],
     });
 
-    await expect(service.collect("order-1", "corr-1")).rejects.toThrow(
-      "Ingen kund kopplad till detta BankID",
-    );
-    expect(calls.findOrCreate).toBe(0);
+    const result = await service.collect("order-1", "corr-1");
+
+    expect(result).toEqual({ status: "no_company", companies: [] });
+    expect(calls.findOrCreate).toBe(1);
+    // Avstängda tenants filtrerades bort INNAN syncCompanyLinks — den ser
+    // aldrig de suspenderade matchningarna, precis som innan.
+    expect(calls.syncCompanyLinks).toEqual([{ userId: 999, matches: [] }]);
+    expect(calls.touchLink).toEqual([]);
   });
 
   test("filtrerar bort avstängda tenants men behåller aktiva, utfärdar session för den aktiva länken", async () => {

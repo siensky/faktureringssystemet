@@ -24,6 +24,16 @@ A company signs up and gets its own fully isolated account.
 
 One company can never see another's data — not "the query happens to filter correctly," but enforced at the data-access layer itself.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Customer overview](docs/screenshots/portal-dashboard.png) | ![Invoice PDF](docs/screenshots/portal-invoice-pdf.png) |
+| Customer portal — account overview after logging in with BankID | The generated invoice PDF, rendered server-side with WeasyPrint |
+
+![Backoffice — new invoice](docs/screenshots/backoffice-new-invoice.png)
+*Backoffice — creating an invoice, with VAT totals calculated live as line items are entered*
+
 ## Architecture
 
 ![System design](docs/system-design.png)
@@ -61,19 +71,43 @@ Events are written to the database in the same transaction as the data they desc
 
 ## Running it locally
 
+### 1. Start the backend
+
 ```bash
 cp .env.example .env
 docker compose up -d
-docker compose exec migrate bun run migrate
 ```
 
-This brings up all four services behind nginx on `localhost:8080`, plus Postgres, Redis, RabbitMQ, MinIO (S3-compatible storage) and Mailpit (catches outgoing email locally instead of sending it).
+Migrations run automatically as part of the startup sequence (the `migrate` container runs once and exits before any service starts) — no separate migration command needed. This brings up all four services behind nginx on `localhost:8080`, plus Postgres, Redis, RabbitMQ, MinIO (S3-compatible storage) and Mailpit (catches outgoing email locally instead of sending it, browsable at `localhost:8025`).
+
+Wait for every container to report `healthy` (`docker compose ps`), then confirm the gateway is up:
+
+```bash
+curl localhost:8080/health   # -> 200
+```
+
+### 2. Start the two front-ends
 
 ```bash
 bun install
+cd apps/backoffice && bun run dev   # localhost:5173 — for the business
+cd apps/portal && bun run dev       # localhost:5174 — for their customers
+```
+
+### 3. Click around
+
+- **Backoffice** (`localhost:5173`): register a new account (there's no seeded login — the first visit creates one), fill in company details under settings, add a customer, create and send an invoice.
+- **Payments**: send a mock bank payment with the invoice's OCR reference to `POST localhost:8080/webhooks/payment` (see `e2e/helpers.ts` for a working signed-request example) and watch the invoice flip to `paid`.
+- **Portal** (`localhost:5174`): the customer you just billed can log in with the password you set for them (via a customer invite from backoffice) or with BankID — `BANKID_PROVIDER=mock` by default, so signing in doesn't require a real BankID app; any personal number completes instantly except the two sentinel values documented in `services/auth/src/bankid/provider.ts`.
+- **Generated PDFs** land in MinIO and get emailed through Mailpit — open `localhost:8025` to see them without a real inbox.
+
+### 4. Run the tests
+
+```bash
 bun run lint            # Biome
 bun run typecheck       # tsc --noEmit, per workspace
-bun test                # all TypeScript tests
+bun test                # unit tests, all TypeScript workspaces
+bun run test:e2e        # end-to-end, against the running docker-compose stack
 ```
 
 The Python service manages its own environment with `uv`:

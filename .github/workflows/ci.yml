@@ -44,8 +44,14 @@ jobs:
       # hand, eller glömt köra codegen efter en schemaändring.
       - run: bun run codegen
       - run: git diff --exit-code -- packages/contracts/src/generated
-      # --coverage för synlighet (testing.md #14: >=90% på ren
-      # affärslogik). Ingen hård tröskel i CI än — se PR-not.
+      # --coverage för synlighet, inte en grind: testing.md #14:s ≥90%-krav
+      # på ren affärslogik (services/**/services.ts) mäts i praktiken inte
+      # av den här körningen — de filerna testas via e2e (riktiga HTTP-
+      # anrop, ingen kodtäckning möjlig över en processgräns), inte via
+      # bun:test. En riktig `coverageThreshold` här skulle alltså inte
+      # skydda mot framtida försämring, den skulle bara krascha CI på ett
+      # krav som redan är obesvarat idag. Kravet är därför aspirational —
+      # bockas av manuellt vid granskning, inte enforcat.
       - run: bun test --coverage packages services
 
   unit-tests-python:

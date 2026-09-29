@@ -13,6 +13,10 @@ export interface BankIdInitResult {
 
 export type BankIdCollectResult =
   | { status: "pending" | "failed"; hintCode?: string }
+  // Identifierad, men inte länkad till något företag än — inget sessions-
+  // token utfärdas (services/auth/src/bankid/services.ts). Portalen visar
+  // ett tomt "inga utgifter än"-läge direkt ur det här svaret.
+  | { status: "no_company"; companies: [] }
   | (TokenPairResponse & { status: "complete"; companies: CompanyLinkDto[] });
 
 /** Ingen personalNumber — QR/samma-enhet-flödet (services/auth/src/bankid/schema.ts). */

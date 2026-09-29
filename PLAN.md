@@ -10,6 +10,8 @@ Planen har reviderats i två omgångar. Första omgången bytte arbetssätt (jag
 
 Granskningen läste den *förra* planen, så några punkter var redan lösta: CD är struket, refresh-tokens ligger redan i Postgres. (Portalbetalning via Stripe testläge var struket men återinfördes 2026-09-10 som fas 10 — se nedan.) Sakinnehållet i invändningarna stämmer ändå.
 
+**Innehåll:** [Beslut](#beslut) · [Struktur](#struktur) · [Domänmodell](#domänmodell--rättelserna-från-granskningen) · [Säkerhet](#säkerhet) · [Idempotens](#idempotens) · [Faser](#faser) (fas 0–14, allt mergat till `main`) · [Tester](#tester) · [Verifiering](#verifiering) · [Granskningspunkter](#granskningspunkter--var-de-är-lösta)
+
 ---
 
 ## Beslut
@@ -26,7 +28,7 @@ Granskningen läste den *förra* planen, så några punkter var redan lösta: CD
 | Användarauth | Stateless access-JWT + refresh-token hashad i `user_tokens` | Överlever omstart, går att revokera och lista |
 | Inloggning | E-post + lösenord (argon2id), samt BankID via mockad provider | Riktig BankID går inte att köra i CI |
 | Signering | **HS256 med separat hemlighet per token-klass** — medvetet val, se Säkerhet | Minst kod; risken skrivs ner som accepterad, inte förbisedd |
-| Personnummer | **Krypterat (AES-GCM) + deterministisk HMAC för uppslag** | En läckt databasdump lämnar inte ut personnummer |
+| Personnummer | **Krypterat (AES-GCM) + deterministisk HMAC för uppslag** | En läckt databasdump *utan* `PNR_HMAC_KEY` lämnar inte ut personnummer — svenska personnummer har lågt nog värderymd (~100 år × 366 dagar × löpnummer) att en läckt HMAC-nyckel gör hela värderymden uträkningsbar offline; `PNR_HMAC_KEY` är alltså lika skyddsvärd som krypteringsnyckeln, inte en mindre viktig detalj |
 | Påminnelse | **Ny faktura; originalet sätts `superseded` och räknas inte som utestående** | Ingen dubbelräkning av skulden |
 | OCR | **Härleds ur fakturanumret** (nummer + längdsiffra + Luhn) | Kollision omöjlig per konstruktion; ingen retry-loop |
 | Betalningar | **`invoice_payments`, en rad per betalning** — `paid_ore` beräknas, lagras aldrig | Dubbletter blir unique-violation i stället för fel saldo |
@@ -414,6 +416,39 @@ BankID eller lösenord, samma JWT. `GET /portal/invoices`, `/:id`, `/:id/pdf` (s
 ### Fas 11 — Riktig BankID (valfri)
 
 `MockBankIdProvider` → `RealBankIdProvider` mot RP-testmiljön. Mocken tas inte bort; CI kör vidare mot den.
+
+### Fas 12 — BankID-igenkänning, tenant-övergripande
+
+En privatperson som redan är registrerad som kund hos ett eller flera företag i systemet kan logga in **en gång** med BankID — utan inbjudningslänk — och se alla de företagen, som Klarna.
+
+- **Ny tabell `user_company_links`** (`0011_bankid_customer_portal.js`): kopplar en BankID-inloggningsidentitet till N `(tenant, kund)`-par. Tenant-isoleringens kärna (`TenantScopedRepository`, JWT:ns enda-tenant `tenantId`-claim) är helt orörd — varje session gäller fortfarande exakt ett företag åt gången.
+- **Tenant-övergripande uppslag** i billing (`GET /internal/customers/by-pnr-hmac`, egen scope `billing:customer:lookup`) — samma mönster som bankgiro→tenant-uppslaget i betalningsmatchningen, generaliserat till flera träffar.
+- **`POST /auth/companies/switch`** byter aktivt företag, verifierar alltid mot länktabellen server-side — litar aldrig på klientens `tenantId`.
+- **`GET /auth/companies/overview`** — en läsning per länkat företag (aldrig en fråga som korsar tenant-gränsen), tolerant mot att ett enskilt företag svarar trögt eller inte alls.
+- Portal-frontend: BankID-inlogg med roterande QR-kod, företagsöversikt, byt-företag.
+
+**Klart när:** samma personnummer kopplat till kunder hos två olika tenants loggar in en gång och ser båda, ett byte av aktivt företag ger en isolerad session verifierad server-side, och `GET /auth/refresh` fungerar för en BankID-identitet (`users.tenant_id` är `NULL` för den identitetstypen — ett separat regressionstest).
+
+### Fas 13 — Återkommande fakturor: en egen yta
+
+Fas 6 gav mallarna motorn (nattlig generering, `next_generation_date` som rullar fram) men ingen väg för en admin att faktiskt skapa eller ändra en mall. Den här fasen ger `invoice_templates` fullständig CRUD:
+
+- `POST`/`GET`/`PUT`/`DELETE /admin/invoice-templates` i billing, samma mönster (repository/service/schema) som fakturor.
+- Backoffice: formulär för att skapa och redigera en mall (kund, intervall, rader, nästa genereringsdatum).
+- Portal: en skrivskyddad vy — kunden ser sina aktiva återkommande fakturor, ändrar dem aldrig själv.
+
+**Klart när:** en admin skapar en månadsvis mall i backoffice, cron genererar en faktura av den vid nästa körning precis som fas 6 redan bevisat, och kunden ser mallen (men ingen redigeringsknapp) i portalen.
+
+### Fas 14 — Påminnelser får en egen leveransväg
+
+Påminnelser skapades redan korrekt av cron-jobbet (fas 6: ny faktura, restskuld + avgift, originalet `superseded`) men nådde aldrig kunden — den ursprungliga implementationen publicerade medvetet inget event, för att återanvända `invoice.sent` hade gett en påminnelse ett mejl som sa "Faktura". Den här fasen ger påminnelsen en egen, fullständig väg genom hela kedjan:
+
+- Eget event `invoice.reminder_sent` (`packages/contracts/schemas/events/`) i stället för `invoice.sent` återanvänt.
+- `documents.document_type`/`email_outbox.email_type` utökade med `'reminder'` (`0012_paminnelseleverans.js`).
+- PDF:en får rubriken "Påminnelse" plus en referensrad till originalfakturans nummer; mejlets ämnesrad och brevtext blir egna för påminnelser i stället för fakturans hårdkodade text.
+- Ingen backfill av redan skapade påminnelser — bara nya, framåt.
+
+**Klart när:** `e2e/full-lifecycle.test.ts`s påminnelsekedja verifierar att `document_type = 'reminder'`, att ett mejl med ämnesraden "Påminnelse …" faktiskt går fram i Mailpit, och att `deliveryStatus` går till `sent` på påminnelsen — bevis på att `invoice.delivery_updated` med `documentType: 'reminder'` passerar billings konsument i stället för att dödbrevlådas av det gamla tvåvärda enumet.
 
 ---
 

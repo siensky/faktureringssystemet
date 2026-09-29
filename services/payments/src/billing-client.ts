@@ -13,6 +13,13 @@ import { getServiceToken } from "@faktura/shared";
 import type Redis from "ioredis";
 import { config } from "./config";
 
+// Samma gräns som documents billing_client.py sätter på sina GET-anrop mot
+// billing (httpx timeout=10.0) — den TS-skrivna klienten hade tidigare
+// ingen alls, så ett hängande/trögt billing kunde blockera ett S2S-anrop
+// på obestämd tid i stället för att ge upp och låta anroparen (matchning,
+// se matching/service.ts) gå vidare till sin egen felhantering.
+const BILLING_REQUEST_TIMEOUT_MS = 10_000;
+
 export interface InvoiceResolution {
   currentInvoiceId: number;
   customerId: number;
@@ -61,6 +68,7 @@ export class BillingClient {
     const token = await this.serviceToken(false);
     let res = await fetch(`${config.billingBaseUrl}${path}`, {
       headers: { authorization: `Bearer ${token}`, ...headers },
+      signal: AbortSignal.timeout(BILLING_REQUEST_TIMEOUT_MS),
     });
     if (res.status === 401) {
       // architecture.md #19: 401 = ogiltigt/utgånget token — transient,
@@ -69,6 +77,7 @@ export class BillingClient {
       const fresh = await this.serviceToken(true);
       res = await fetch(`${config.billingBaseUrl}${path}`, {
         headers: { authorization: `Bearer ${fresh}`, ...headers },
+        signal: AbortSignal.timeout(BILLING_REQUEST_TIMEOUT_MS),
       });
     }
     const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);

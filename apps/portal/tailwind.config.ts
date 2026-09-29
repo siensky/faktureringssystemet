@@ -2,9 +2,10 @@ import type { Config } from "tailwindcss";
 
 // Egen färgpalett i stället för Tailwinds standard-slate, så portalen inte
 // ser ut som vilken default-Tailwind-app som helst: djupblå "ink" (rubriker,
-// primära knappar, header), blågrå "mist" (sekundär text/kantlinjer) och en
-// ljusgrön "mint"-accent som används sparsamt (hover, aktiva tillstånd,
-// positiva statusar). "cream" är sidbakgrunden — varmare än ett rent grått.
+// primära knappar, header/sidomeny), blågrå "mist" (sekundär text/
+// kantlinjer) och en varm "sienna"-accent (bränd terrakotta) som används
+// sparsamt (aktiv navigering, hover, positiva statusar). "cream" är
+// sidbakgrunden — varmare än ett rent grått.
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
@@ -35,17 +36,17 @@ export default {
           800: "#2b3542",
           900: "#1f2730",
         },
-        mint: {
-          50: "#f2faec",
-          100: "#e2f4d3",
-          200: "#c8eaab",
-          300: "#abdd82",
-          400: "#8fce5e",
-          500: "#72b843",
-          600: "#589433",
-          700: "#43712a",
-          800: "#365a24",
-          900: "#2d4a21",
+        sienna: {
+          50: "#fbf1ec",
+          100: "#f4ded2",
+          200: "#e6b99e",
+          300: "#d6926a",
+          400: "#c37142",
+          500: "#a0522d",
+          600: "#82401f",
+          700: "#66331a",
+          800: "#4d2715",
+          900: "#331a0e",
         },
         cream: {
           50: "#faf9f5",

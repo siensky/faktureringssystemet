@@ -18,7 +18,7 @@ export function CompaniesPage() {
     setSwitchError(null);
     try {
       await switchCompany(tenantId);
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       // T.ex. att länken hann tas bort mellan att listan hämtades och
       // klicket (kodgranskning fas 12) — utan detta blev det en tyst,
@@ -51,10 +51,10 @@ export function CompaniesPage() {
             key={company.tenantId}
             type="button"
             onClick={() => void openCompany(company.tenantId)}
-            className="group flex w-full items-center justify-between rounded-xl border border-ink-100 bg-white p-5 text-left shadow-sm transition hover:border-mint-400 hover:shadow-md"
+            className="group flex w-full items-center justify-between rounded-xl border border-ink-100 bg-white p-5 text-left shadow-sm transition hover:border-sienna-400 hover:shadow-md"
           >
             <div className="flex items-center gap-4">
-              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-ink-900 text-sm font-bold text-mint-300">
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-ink-900 text-sm font-bold text-sienna-300">
                 {company.tenantName.charAt(0).toUpperCase()}
               </span>
               <div>
@@ -68,7 +68,9 @@ export function CompaniesPage() {
             </div>
             <div className="text-right">
               <p className="font-medium text-ink-900">{formatSEK(company.outstanding)}</p>
-              <p className="text-sm text-mist-400 transition group-hover:text-mint-600">Öppna →</p>
+              <p className="text-sm text-mist-400 transition group-hover:text-sienna-600">
+                Öppna →
+              </p>
             </div>
           </button>
         ))}

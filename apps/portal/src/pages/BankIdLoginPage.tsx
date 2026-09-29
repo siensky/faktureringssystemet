@@ -78,7 +78,15 @@ export function BankIdLoginPage() {
         if (result.status === "complete") {
           clearInterval(interval);
           await loginWithBankId(result);
-          navigate(result.companies.length > 1 ? "/companies" : "/", { replace: true });
+          navigate(result.companies.length > 1 ? "/companies" : "/dashboard", { replace: true });
+          return;
+        }
+        if (result.status === "no_company") {
+          // Identifierad, men inte länkad till något företag än — inget
+          // sessions-token att sätta (services/auth/src/bankid/services.ts).
+          // Ett tomt "inga utgifter än"-läge, ingen inloggad session.
+          clearInterval(interval);
+          navigate("/no-company", { replace: true });
           return;
         }
         if (result.status === "failed") {
@@ -130,7 +138,7 @@ export function BankIdLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-cream-50 to-cream-100 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-ink-100 bg-white p-8 text-center shadow-lg shadow-ink-900/5">
         <div className="mx-auto mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-ink-900">
-          <span className="text-sm font-bold text-mint-300">F</span>
+          <span className="text-sm font-bold text-sienna-300">F</span>
         </div>
         <h1 className="mb-6 text-xl font-semibold tracking-tight text-ink-900">
           Logga in med BankID

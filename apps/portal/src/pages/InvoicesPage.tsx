@@ -79,7 +79,7 @@ export function InvoicesPage() {
       {summary && (
         <div className="mb-6 flex items-center gap-4 rounded-xl border border-ink-100 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-ink-900">
-            <span className="text-base font-bold text-mint-300">kr</span>
+            <span className="text-base font-bold text-sienna-300">kr</span>
           </div>
           <div>
             <div className="text-sm text-mist-500">Utestående skuld</div>
@@ -148,7 +148,7 @@ export function InvoicesPage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") navigate(`/invoices/${invoice.id}`);
                 }}
-                className="group cursor-pointer border-b border-ink-50 transition last:border-0 hover:bg-mint-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-400"
+                className="group cursor-pointer border-b border-ink-50 transition last:border-0 hover:bg-sienna-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-400"
               >
                 <td className="px-4 py-4">
                   <span className="font-medium text-ink-900 underline decoration-mist-300 decoration-1 underline-offset-4 group-hover:decoration-ink-900">
@@ -165,7 +165,7 @@ export function InvoicesPage() {
                 <td className="px-4 py-4 text-right">
                   <PdfButton invoiceId={invoice.id} />
                 </td>
-                <td className="px-2 py-4 text-mist-300 transition group-hover:translate-x-0.5 group-hover:text-mint-600">
+                <td className="px-2 py-4 text-mist-300 transition group-hover:translate-x-0.5 group-hover:text-sienna-600">
                   →
                 </td>
               </tr>
