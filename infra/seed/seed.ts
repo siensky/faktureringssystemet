@@ -18,6 +18,14 @@
 // `docker compose up`.
 
 import postgres from "postgres";
+import type { Sql } from "postgres";
+import {
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_PASSWORD,
+  DEMO_TENANT_BANKGIRO,
+  DEMO_TENANT_NAME,
+  DEMO_TENANT_ORG_NUMBER,
+} from "./demo-constants";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -42,6 +50,48 @@ interface ClientSpec {
 }
 
 const ALLOWED_ENVIRONMENTS = new Set(["development", "test"]);
+
+// Demo-tenant + adminkonto, så det alltid finns en känd inloggning att
+// testa lokalt med utan att först behöva registrera sig (root-README,
+// "Running it locally"). Kunden och exempelfakturorna seedas separat i
+// seed-demo-data.ts, som körs EFTER att auth/billing/payments är healthy —
+// det här steget rör bara databasen och kan därför köras tidigt, precis
+// som service_clients ovan.
+async function seedDemoAdmin(sql: Sql): Promise<void> {
+  const [tenant] = await sql<[{ id: number }]>`
+    INSERT INTO tenants (name, org_number)
+    VALUES (${DEMO_TENANT_NAME}, ${DEMO_TENANT_ORG_NUMBER})
+    ON CONFLICT (org_number) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+  `;
+
+  await sql`
+    INSERT INTO company_settings (tenant_id, company_name, org_number, bankgiro)
+    VALUES (${tenant.id}, ${DEMO_TENANT_NAME}, ${DEMO_TENANT_ORG_NUMBER}, ${DEMO_TENANT_BANKGIRO})
+    ON CONFLICT (tenant_id) DO UPDATE
+    SET company_name = EXCLUDED.company_name,
+        org_number = EXCLUDED.org_number,
+        bankgiro = EXCLUDED.bankgiro
+  `;
+
+  const passwordHash = await hashSecret(DEMO_ADMIN_PASSWORD);
+  const [existing] = await sql<{ id: number }[]>`
+    SELECT id FROM users WHERE lower(email) = lower(${DEMO_ADMIN_EMAIL})
+  `;
+  if (existing) {
+    await sql`
+      UPDATE users
+      SET password_hash = ${passwordHash}, tenant_id = ${tenant.id}, email_verified_at = now()
+      WHERE id = ${existing.id}
+    `;
+  } else {
+    await sql`
+      INSERT INTO users (tenant_id, role, auth_method, email, password_hash, email_verified_at)
+      VALUES (${tenant.id}, 'admin', 'password', ${DEMO_ADMIN_EMAIL}, ${passwordHash}, now())
+    `;
+  }
+  console.log(`seed: ✓ demo-tenant "${DEMO_TENANT_NAME}" + admin ${DEMO_ADMIN_EMAIL}`);
+}
 
 async function main(): Promise<void> {
   const env = process.env.NODE_ENV;
@@ -159,6 +209,7 @@ async function main(): Promise<void> {
       `;
       console.log(`seed: ✓ ${client.clientId} (${client.scopes.join(" ")})`);
     }
+    await seedDemoAdmin(sql);
   } finally {
     await sql.end({ timeout: 5 });
   }

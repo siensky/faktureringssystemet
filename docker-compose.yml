@@ -420,6 +420,52 @@ services:
       retries: 5
       start_period: 10s
 
+  # Engångscontainer: exempelkund + tre fakturor i demo-tenantet, skapade
+  # via RIKTIGA HTTP-anrop mot auth/billing/payments (infra/seed/
+  # seed-demo-data.ts) — måste därför vänta på att alla fyra tjänster är
+  # healthy, till skillnad från `seed` ovan som bara väntar på migrate.
+  #
+  # documents måste vara med här, trots att inget anrop nedan går direkt
+  # till den: att skicka+betala en faktura publicerar invoice.sent/
+  # invoice.reminder_sent på 'events'-exchangen, och documents kö
+  # (documents.events) med sina bindningar deklareras först i dess EGEN
+  # uppstart (consumer.start() i services/documents/src/documents/
+  # main.py, INNAN /health/ready ens svarar — se lifespan där). Ett
+  # topic-exchange-meddelande utan någon bunden kö droppas TYST av
+  # RabbitMQ, utan fel, utan dead-letter — hittat genom att just detta
+  # hände en påminnelse under en helt kall `docker compose up -d` här:
+  # documents var fortfarande mitt i sin egen uppstart (uv sync + Python-
+  # import + WeasyPrint) när automationskörningen nedan hann publicera
+  # eventet. Väntar man på documents: service_healthy FÖRST, är kön och
+  # dess bindningar redan deklarerade innan något av detta körs.
+  seed-demo-data:
+    build:
+      context: .
+      dockerfile: infra/seed/Dockerfile
+    command: ["bun", "run", "seed-demo-data.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: ${NODE_ENV:-development}
+      AUTH_BASE_URL: http://auth:${AUTH_PORT}
+      BILLING_BASE_URL: http://billing:${BILLING_PORT}
+      PAYMENTS_BASE_URL: http://payments:${PAYMENTS_PORT}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET}
+      # Samma drift-konto seed.ts redan provisionerat, för att trigga
+      # /internal/automation/run och få faktura C markerad försenad.
+      BILLING_OPS_CLIENT_ID: ${BILLING_OPS_CLIENT_ID}
+      BILLING_OPS_CLIENT_SECRET: ${BILLING_OPS_CLIENT_SECRET}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+      payments:
+        condition: service_healthy
+      documents:
+        condition: service_healthy
+
   documents:
     build:
       context: .

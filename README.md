@@ -94,12 +94,24 @@ cd apps/backoffice && bun run dev   # localhost:5173 — for the business
 cd apps/portal && bun run dev       # localhost:5174 — for their customers
 ```
 
-### 3. Click around
+### 3. Log in and click around
 
-- **Backoffice** (`localhost:5173`): register a new account (there's no seeded login — the first visit creates one), fill in company details under settings, add a customer, create and send an invoice.
-- **Payments**: send a mock bank payment with the invoice's OCR reference to `POST localhost:8080/webhooks/payment` (see `e2e/helpers.ts` for a working signed-request example) and watch the invoice flip to `paid`.
-- **Portal** (`localhost:5174`): the customer you just billed can log in with the password you set for them (via a customer invite from backoffice) or with BankID — `BANKID_PROVIDER=mock` by default, so signing in doesn't require a real BankID app; any personal number completes instantly except the two sentinel values documented in `services/auth/src/bankid/provider.ts`.
+Startup seeds a ready-to-use account in each app, with example data already in place — no registration needed to look around:
+
+| | Email | Password |
+|---|---|---|
+| **Backoffice** (`localhost:5173`) | `admin@demo.test` | `DemoLosenord123!` |
+| **Portal** (`localhost:5174`) | `kund@demo.test` | `DemoLosenord123!` |
+
+The admin account belongs to "Snickeri AB", which already has one customer ("Frida Nilsson AB") and three invoices covering the three states worth seeing: one paid (via a real signed payment webhook), one sent and still outstanding, and one that was left overdue and has already been superseded by an auto-generated reminder. The portal login is that same customer, so its account overview shows all of it from the other side.
+
+From there:
+- **Backoffice**: fill in company details under settings, add another customer, create and send a new invoice.
+- **Payments**: send a mock bank payment with an invoice's OCR reference to `POST localhost:8080/webhooks/payment` (see `e2e/helpers.ts` for a working signed-request example) and watch it flip to `paid`.
+- **Portal**: log in as the seeded customer above, or register a new BankID identity instead — `BANKID_PROVIDER=mock` by default, so signing in doesn't require a real BankID app; any personal number completes instantly except the two sentinel values documented in `services/auth/src/bankid/provider.ts`.
 - **Generated PDFs** land in the S3-compatible storage and get emailed through Mailpit — open `localhost:8025` to see them without a real inbox.
+
+(The seed only ever runs against `NODE_ENV=development`/`test`, and the accounts and their secrets — `infra/seed/seed.ts`, `infra/seed/seed-demo-data.ts` — are for local use only, never production.)
 
 ### 4. Run the tests
 
